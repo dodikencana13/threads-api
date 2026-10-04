@@ -5,9 +5,39 @@
 // prompt, the Facebook caption skeleton with tags, and the easter-egg spec.
 // GET  -> free preview + payment terms.  POST {character, series?, move?, ...} -> paid.
 
-import { gate, routeInfo } from "../../lib/x402.js";
+import { gate, routeInfo, cors, challenge } from "../../lib/x402.js";
 
 export const PRICE = "10000"; // 0.01 USDC (6 decimals)
+const INPUT_SCHEMA = {
+  type: "object",
+  required: ["character"],
+  properties: {
+    character: { type: "string", description: "Character name, e.g. 'Madara Uchiha'" },
+    series: { type: "string", description: "Franchise, e.g. 'Naruto Shippuden'" },
+    move: { type: "string", description: "Action/pose" },
+    light: { type: "string", description: "Lighting mood" },
+    quote: { type: "string", description: "Signature quote carved on the stone" },
+    emblem: { type: "string", description: "Clan emblem carved top-right" },
+    jp: { type: "string", description: "Kanji for the vertical column" },
+    egg: { type: "string", description: "Where the paper crane hides" },
+    credit: { type: "string", description: "Credit line" },
+  },
+};
+const OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    character: { type: "string" },
+    series: { type: "string" },
+    render_prompt: { type: "string" },
+    negative_prompt: { type: "string" },
+    anatomy_lock: { type: "string" },
+    caption_facebook: { type: "string" },
+    tags: { type: "array", items: { type: "string" } },
+    easter_egg: { type: "object" },
+    model_hint: { type: "string" },
+    post_render_checklist: { type: "array", items: { type: "string" } },
+  },
+};
 const DESCRIPTION = "Stone-poster prompt kit: canon render prompt + anatomy lock + negative prompt + caption + tags for any anime character (x402, USDC on Base)";
 
 const STYLE_LOCK =
@@ -95,6 +125,13 @@ function kit(body) {
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
+  cors(res);
+
+  if (req.method === "OPTIONS" || req.method === "HEAD") {
+    // x402scan/agentcash probes must reach a 402 challenge on ANY method.
+    return challenge(req, res, { price: PRICE, description: DESCRIPTION,
+      inputSchema: INPUT_SCHEMA, outputSchema: OUTPUT_SCHEMA });
+  }
 
   if (req.method === "GET") {
     return res.status(200).json({
@@ -110,9 +147,9 @@ export default async function handler(req, res) {
     });
   }
 
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-
-  const paid = await gate(req, res, { price: PRICE, description: DESCRIPTION });
+  // any state-changing method goes through the payment gate (never 405 on probes)
+  const paid = await gate(req, res, { price: PRICE, description: DESCRIPTION,
+    inputSchema: INPUT_SCHEMA, outputSchema: OUTPUT_SCHEMA });
   if (paid !== true) return; // 402/4xx/503 already sent
 
   const body = (req.body && typeof req.body === "object") ? req.body : {};

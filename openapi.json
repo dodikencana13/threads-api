@@ -2,28 +2,36 @@
   "openapi": "3.1.0",
   "info": {
     "title": "EPIC WOOD ARCHIVES — stone-poster workshop APIs",
-    "description": "Paid APIs for anime art agents and creators, monetized with x402 (USDC on Base). Stone-poster prompt kit: the canon render system behind the EPIC WOOD ARCHIVES page (2D hand-drawn anime character carved into a granite monument under real cinematic light) returned as a ready-to-use prompt + negative prompt + Facebook caption + tags + easter-egg spec. Stone Curator chat: anime poster art direction, caption hooks, character picks and organic growth tactics. Free discovery: GET /api/. Payment flow: POST a paid route, receive 402 with accepts[] payment requirements, sign an EIP-3009 USDC transferWithAuthorization, retry with header X-PAYMENT: base64(paymentPayload).",
-    "version": "1.0.0"
+    "description": "Paid APIs for anime art agents and creators, monetized with x402 (USDC on Base). Stone-poster prompt kit: the canon render system behind the EPIC WOOD ARCHIVES page (true 2D hand-drawn anime character carved into a granite monument under real cinematic light — volumetric god-rays, lit fog, rim-fire) returned as a ready-to-use render prompt, anatomy lock, negative prompt, Facebook caption with 15 tags, easter-egg spec and post-render checklist.",
+    "version": "1.3.0",
+    "contact": {
+      "name": "EPIC WOOD ARCHIVES",
+      "url": "https://epic-wood-x402.vercel.app/api/"
+    },
+    "x-guidance": "Call POST /api/x402/stone-prompt with {\"character\": \"<name>\"}. Expect HTTP 402: the body and the base64 Payment-Required header both carry the x402 v2 challenge — resource {url, description, mimeType} plus accepts[] with scheme exact, network eip155:8453 (Base), amount in USDC atomic units (0.01 USD = 10000), asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 and payTo. Sign an EIP-3009 USDC transferWithAuthorization and retry the identical request with header X-PAYMENT: base64(paymentPayload). The 200 response includes the X-PAYMENT-RESPONSE receipt header (txHash). Free machine-readable index: GET /api/. Free product preview (Pain example): GET /api/x402/stone-prompt."
   },
   "servers": [
-    { "url": "https://epic-wood-x402.vercel.app" }
+    {
+      "url": "https://epic-wood-x402.vercel.app"
+    }
   ],
   "paths": {
     "/api/x402/stone-prompt": {
-      "get": {
-        "operationId": "stonePromptPreview",
-        "summary": "Free preview of the stone-poster prompt kit (Pain example) plus payment terms",
-        "responses": {
-          "200": { "description": "Preview kit + x402 payment terms" }
-        }
-      },
       "post": {
         "operationId": "stonePromptGenerate",
         "summary": "Generate the full stone-poster kit for any anime character (paid, x402)",
-        "description": "Returns: canon render prompt (2D anime character inside a carved granite monument, volumetric god-rays, rim-fire, carved name lettering, kanji columns, hidden paper-crane egg), ANATOMY LOCK, negative prompt, Facebook caption skeleton with 15 tags, easter-egg spec, model hint and post-render checklist.",
+        "description": "Returns: canon render prompt, ANATOMY LOCK, negative prompt, Facebook caption skeleton with 15 tags, easter-egg spec, model hint and post-render checklist.",
         "x-payment-info": {
-          "price": { "mode": "fixed", "currency": "USD", "amount": "0.01" },
-          "protocols": [ { "x402": {} } ]
+          "price": {
+            "mode": "fixed",
+            "currency": "USD",
+            "amount": "0.01"
+          },
+          "protocols": [
+            {
+              "x402": {}
+            }
+          ]
         },
         "requestBody": {
           "required": true,
@@ -31,72 +39,54 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["character"],
+                "required": [
+                  "character"
+                ],
                 "properties": {
-                  "character": { "type": "string", "description": "Character name, e.g. 'Madara Uchiha'", "maxLength": 80 },
-                  "series": { "type": "string", "description": "Franchise, e.g. 'Naruto Shippuden'", "maxLength": 60 },
-                  "move": { "type": "string", "description": "Action/pose description", "maxLength": 200 },
-                  "light": { "type": "string", "description": "Lighting mood, e.g. 'crimson storm rim-light'", "maxLength": 120 },
-                  "quote": { "type": "string", "description": "Signature quote carved on the stone", "maxLength": 160 },
-                  "emblem": { "type": "string", "description": "Clan/emblem mark carved top-right", "maxLength": 80 },
-                  "jp": { "type": "string", "description": "Japanese kanji for the vertical column", "maxLength": 40 },
-                  "egg": { "type": "string", "description": "Where the hidden paper crane sits", "maxLength": 120 },
-                  "credit": { "type": "string", "description": "Credit line, default 'EPIC WOOD ARCHIVES 2026'", "maxLength": 60 }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Paid kit: render_prompt, negative_prompt, anatomy_lock, caption_facebook, tags, easter_egg, checklist",
-            "headers": {
-              "X-PAYMENT-RESPONSE": { "description": "base64 x402 settle receipt (txHash, networkId)", "schema": { "type": "string" } }
-            }
-          },
-          "402": {
-            "description": "Payment Required — x402 challenge: body carries x402Version and accepts[] payment requirements (USDC on Base, scheme exact)"
-          },
-          "400": { "description": "Missing 'character' field (only after successful payment)" },
-          "503": { "description": "Server wallet (PAY_TO) not configured" }
-        }
-      }
-    },
-    "/api/x402/chat": {
-      "get": {
-        "operationId": "chatInfo",
-        "summary": "Free info: persona, request shape, backend status, payment terms",
-        "responses": {
-          "200": { "description": "Route info + x402 payment terms" }
-        }
-      },
-      "post": {
-        "operationId": "chatCurator",
-        "summary": "Ask The Stone Curator: anime poster art direction, captions, growth tactics (paid, x402)",
-        "description": "One call = one reply from the EPIC WOOD ARCHIVES creative brain: which character/moment to carve next, poster composition, cinematic lighting, caption hooks, hashtags, organic growth tactics for anime art pages.",
-        "x-payment-info": {
-          "price": { "mode": "fixed", "currency": "USD", "amount": "0.02" },
-          "protocols": [ { "x402": {} } ]
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["message"],
-                "properties": {
-                  "message": { "type": "string", "description": "Your question for the Stone Curator", "maxLength": 4000 },
-                  "history": {
-                    "type": "array",
-                    "description": "Optional prior turns",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "role": { "type": "string", "enum": ["user", "assistant"] },
-                        "content": { "type": "string" }
-                      }
-                    }
+                  "character": {
+                    "type": "string",
+                    "description": "Character name, e.g. 'Madara Uchiha'",
+                    "maxLength": 80
+                  },
+                  "series": {
+                    "type": "string",
+                    "description": "Franchise, e.g. 'Naruto Shippuden'",
+                    "maxLength": 60
+                  },
+                  "move": {
+                    "type": "string",
+                    "description": "Action/pose description",
+                    "maxLength": 200
+                  },
+                  "light": {
+                    "type": "string",
+                    "description": "Lighting mood, e.g. 'crimson storm rim-light'",
+                    "maxLength": 120
+                  },
+                  "quote": {
+                    "type": "string",
+                    "description": "Signature quote carved on the stone",
+                    "maxLength": 160
+                  },
+                  "emblem": {
+                    "type": "string",
+                    "description": "Clan/emblem mark carved top-right",
+                    "maxLength": 80
+                  },
+                  "jp": {
+                    "type": "string",
+                    "description": "Japanese kanji for the vertical column",
+                    "maxLength": 40
+                  },
+                  "egg": {
+                    "type": "string",
+                    "description": "Where the hidden paper crane sits",
+                    "maxLength": 120
+                  },
+                  "credit": {
+                    "type": "string",
+                    "description": "Credit line, default 'EPIC WOOD ARCHIVES 2026'",
+                    "maxLength": 60
                   }
                 }
               }
@@ -105,16 +95,87 @@
         },
         "responses": {
           "200": {
-            "description": "Curator reply",
+            "description": "Paid kit: render_prompt, negative_prompt, anatomy_lock, caption_facebook, tags, easter_egg, checklist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "character": {
+                      "type": "string"
+                    },
+                    "series": {
+                      "type": "string"
+                    },
+                    "render_prompt": {
+                      "type": "string",
+                      "description": "Canon stone-poster render prompt with anatomy lock baked in"
+                    },
+                    "negative_prompt": {
+                      "type": "string",
+                      "description": "Negative prompt for models that support one"
+                    },
+                    "anatomy_lock": {
+                      "type": "string"
+                    },
+                    "caption_facebook": {
+                      "type": "string",
+                      "description": "Ready-to-post caption: SEO line, quote hook, craft line, reframe, egg hunt, save CTA, 15 tags"
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "easter_egg": {
+                      "type": "object",
+                      "properties": {
+                        "motif": {
+                          "type": "string"
+                        },
+                        "location": {
+                          "type": "string"
+                        },
+                        "rule": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "credit_line": {
+                      "type": "string"
+                    },
+                    "model_hint": {
+                      "type": "string"
+                    },
+                    "post_render_checklist": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            },
             "headers": {
-              "X-PAYMENT-RESPONSE": { "description": "base64 x402 settle receipt (txHash, networkId)", "schema": { "type": "string" } }
+              "X-PAYMENT-RESPONSE": {
+                "description": "base64 x402 settle receipt (txHash, networkId)",
+                "schema": {
+                  "type": "string"
+                }
+              }
             }
           },
-          "402": {
-            "description": "Payment Required — x402 challenge: body carries x402Version and accepts[] payment requirements (USDC on Base, scheme exact)"
+          "400": {
+            "description": "Missing 'character' field (only after successful payment)"
           },
-          "400": { "description": "Missing 'message' field (only after successful payment)" },
-          "503": { "description": "Chat backend (GROQ_API_KEY) not configured" }
+          "402": {
+            "description": "Payment Required — x402 v2 challenge: body (and base64 Payment-Required header) carry x402Version, resource, accepts[] (USDC on Base, scheme exact) and extensions.bazaar input/output schemas"
+          },
+          "503": {
+            "description": "Server wallet (PAY_TO) not configured"
+          }
         }
       }
     },
@@ -122,8 +183,41 @@
       "get": {
         "operationId": "discovery",
         "summary": "Free machine-readable discovery document (endpoints, prices, payment terms)",
+        "security": [],
         "responses": {
-          "200": { "description": "Discovery JSON" }
+          "200": {
+            "description": "Discovery JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "server": {
+                      "type": "string"
+                    },
+                    "x402Version": {
+                      "type": "number"
+                    },
+                    "network": {
+                      "type": "string"
+                    },
+                    "asset": {
+                      "type": "string"
+                    },
+                    "payTo": {
+                      "type": "string"
+                    },
+                    "endpoints": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }

@@ -2,7 +2,7 @@
 // Lists every paid route with its exact PaymentRequirements terms so any x402
 // client can pick a service and pay without guessing.
 
-import { USDC_BASE, NETWORK, X402_VERSION } from "../lib/x402.js";
+import { USDC_BASE, NETWORK, X402_VERSION, cors } from "../lib/x402.js";
 import { PRICE as PROMPT_PRICE } from "./x402/stone-prompt.js";
 import { PRICE as CHAT_PRICE } from "./x402/chat.js";
 
@@ -12,6 +12,7 @@ function host(req) {
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
+  cors(res);
   const proto = req.headers["x-forwarded-proto"] || "https";
   const base = `${proto}://${host(req)}`;
   const payTo = (process.env.PAY_TO || "").trim() || "(not configured yet)";

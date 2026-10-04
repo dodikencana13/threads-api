@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/openapi.json",
+      "destination": "/api/openapi.json"
+    },
+    {
+      "source": "/.well-known/openapi.json",
+      "destination": "/api/openapi.json"
+    },
+    {
+      "source": "/favicon.ico",
+      "destination": "/api/favicon.ico"
+    }
+  ]
+}

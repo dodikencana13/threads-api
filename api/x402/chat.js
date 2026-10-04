@@ -4,9 +4,21 @@
 // page-growth tactics for anime art pages. One call = one reply.
 // Backend: Groq (env GROQ_API_KEY). GET -> free info + payment terms.
 
-import { gate, routeInfo } from "../../lib/x402.js";
+import { gate, routeInfo, cors, challenge } from "../../lib/x402.js";
 
 export const PRICE = "20000"; // 0.02 USDC
+const INPUT_SCHEMA = {
+  type: "object",
+  required: ["message"],
+  properties: {
+    message: { type: "string", description: "Question for the Stone Curator" },
+    history: { type: "array", items: { type: "object", properties: { role: { type: "string" }, content: { type: "string" } } } },
+  },
+};
+const OUTPUT_SCHEMA = {
+  type: "object",
+  properties: { persona: { type: "string" }, reply: { type: "string" } },
+};
 const DESCRIPTION = "Stone Curator chat: anime poster art direction, captions, character picks, page-growth tactics for anime art pages (x402, USDC on Base)";
 
 const SYSTEM =
@@ -47,6 +59,12 @@ async function groq(message, history) {
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
+  cors(res);
+
+  if (req.method === "OPTIONS" || req.method === "HEAD") {
+    return challenge(req, res, { price: PRICE, description: DESCRIPTION,
+      inputSchema: INPUT_SCHEMA, outputSchema: OUTPUT_SCHEMA });
+  }
 
   if (req.method === "GET") {
     return res.status(200).json({
@@ -57,18 +75,17 @@ export default async function handler(req, res) {
     });
   }
 
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  const paid = await gate(req, res, { price: PRICE, description: DESCRIPTION,
+    inputSchema: INPUT_SCHEMA, outputSchema: OUTPUT_SCHEMA });
+  if (paid !== true) return; // 402/4xx/503 already sent
 
-  const backendReady = Boolean((process.env.GROQ_API_KEY || "").trim());
-  if (!backendReady) {
+  if (!process.env.GROQ_API_KEY || !process.env.GROQ_API_KEY.trim()) {
     return res.status(503).json({
       error: "Chat backend not configured",
-      detail: "Set GROQ_API_KEY in the deployment environment (free tier at console.groq.com).",
+      detail: "GROQ_API_KEY missing in deployment env (free tier: console.groq.com). Payment settled; contact the operator for refund.",
+      x402: { paid: true, txHash: req.x402?.txHash || null },
     });
   }
-
-  const paid = await gate(req, res, { price: PRICE, description: DESCRIPTION });
-  if (paid !== true) return; // 402/4xx/503 already sent
 
   const body = (req.body && typeof req.body === "object") ? req.body : {};
   const message = String(body.message || "").trim();

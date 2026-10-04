@@ -1,0 +1,144 @@
+// api/openapi.json.js — serves the x402 discovery spec at /openapi.json
+// (rewritten via vercel.json). Document is embedded so the zero-config
+// function has no file-read dependency; servers[].url is derived from the
+// request host so it stays correct on any alias/domain.
+//
+// NOTE: /api/x402/chat is intentionally NOT listed until its backend
+// (GROQ_API_KEY) is provisioned — the route stays deployed and switches on
+// automatically; add it back here when the key exists.
+
+const INPUT_SCHEMA = {
+  type: "object",
+  required: ["character"],
+  properties: {
+    character: { type: "string", description: "Character name, e.g. 'Madara Uchiha'", maxLength: 80 },
+    series: { type: "string", description: "Franchise, e.g. 'Naruto Shippuden'", maxLength: 60 },
+    move: { type: "string", description: "Action/pose description", maxLength: 200 },
+    light: { type: "string", description: "Lighting mood, e.g. 'crimson storm rim-light'", maxLength: 120 },
+    quote: { type: "string", description: "Signature quote carved on the stone", maxLength: 160 },
+    emblem: { type: "string", description: "Clan/emblem mark carved top-right", maxLength: 80 },
+    jp: { type: "string", description: "Japanese kanji for the vertical column", maxLength: 40 },
+    egg: { type: "string", description: "Where the hidden paper crane sits", maxLength: 120 },
+    credit: { type: "string", description: "Credit line, default 'EPIC WOOD ARCHIVES 2026'", maxLength: 60 },
+  },
+};
+
+const OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    character: { type: "string" },
+    series: { type: "string" },
+    render_prompt: { type: "string", description: "Canon stone-poster render prompt with anatomy lock baked in" },
+    negative_prompt: { type: "string", description: "Negative prompt for models that support one" },
+    anatomy_lock: { type: "string" },
+    caption_facebook: { type: "string", description: "Ready-to-post caption: SEO line, quote hook, craft line, reframe, egg hunt, save CTA, 15 tags" },
+    tags: { type: "array", items: { type: "string" } },
+    easter_egg: { type: "object", properties: { motif: { type: "string" }, location: { type: "string" }, rule: { type: "string" } } },
+    credit_line: { type: "string" },
+    model_hint: { type: "string" },
+    post_render_checklist: { type: "array", items: { type: "string" } },
+  },
+};
+
+export default async function handler(req, res) {
+  const host = req.headers["x-forwarded-host"] || req.headers.host || "epic-wood-x402.vercel.app";
+  const proto = req.headers["x-forwarded-proto"] || "https";
+  const base = `${proto}://${host}`;
+
+  const doc = {
+    openapi: "3.1.0",
+    info: {
+      title: "EPIC WOOD ARCHIVES — stone-poster workshop APIs",
+      description:
+        "Paid APIs for anime art agents and creators, monetized with x402 (USDC on Base). " +
+        "Stone-poster prompt kit: the canon render system behind the EPIC WOOD ARCHIVES page " +
+        "(true 2D hand-drawn anime character carved into a granite monument under real cinematic " +
+        "light — volumetric god-rays, lit fog, rim-fire) returned as a ready-to-use render prompt, " +
+        "anatomy lock, negative prompt, Facebook caption with 15 tags, easter-egg spec and " +
+        "post-render checklist.",
+      version: "1.3.0",
+      contact: {
+        name: "EPIC WOOD ARCHIVES",
+        url: "https://epic-wood-x402.vercel.app/api/",
+      },
+      "x-guidance":
+        "Call POST /api/x402/stone-prompt with {\"character\": \"<name>\"}. Expect HTTP 402: the body " +
+        "and the base64 Payment-Required header both carry the x402 v2 challenge — resource {url, " +
+        "description, mimeType} plus accepts[] with scheme exact, network eip155:8453 (Base), amount " +
+        "in USDC atomic units (0.01 USD = 10000), asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 " +
+        "and payTo. Sign an EIP-3009 USDC transferWithAuthorization and retry the identical request " +
+        "with header X-PAYMENT: base64(paymentPayload). The 200 response includes the " +
+        "X-PAYMENT-RESPONSE receipt header (txHash). Free machine-readable index: GET /api/. Free " +
+        "product preview (Pain example): GET /api/x402/stone-prompt.",
+    },
+    servers: [{ url: base }],
+    paths: {
+      "/api/x402/stone-prompt": {
+        post: {
+          operationId: "stonePromptGenerate",
+          summary: "Generate the full stone-poster kit for any anime character (paid, x402)",
+          description:
+            "Returns: canon render prompt, ANATOMY LOCK, negative prompt, Facebook caption " +
+            "skeleton with 15 tags, easter-egg spec, model hint and post-render checklist.",
+          "x-payment-info": {
+            price: { mode: "fixed", currency: "USD", amount: "0.01" },
+            protocols: [{ x402: {} }],
+          },
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: INPUT_SCHEMA } },
+          },
+          responses: {
+            "200": {
+              description: "Paid kit: render_prompt, negative_prompt, anatomy_lock, caption_facebook, tags, easter_egg, checklist",
+              content: { "application/json": { schema: OUTPUT_SCHEMA } },
+              headers: {
+                "X-PAYMENT-RESPONSE": {
+                  description: "base64 x402 settle receipt (txHash, networkId)",
+                  schema: { type: "string" },
+                },
+              },
+            },
+            "402": {
+              description:
+                "Payment Required — x402 v2 challenge: body (and base64 Payment-Required header) carry x402Version, resource, accepts[] (USDC on Base, scheme exact) and extensions.bazaar input/output schemas",
+            },
+            "400": { description: "Missing 'character' field (only after successful payment)" },
+            "503": { description: "Server wallet (PAY_TO) not configured" },
+          },
+        },
+      },
+      "/api/": {
+        get: {
+          operationId: "discovery",
+          summary: "Free machine-readable discovery document (endpoints, prices, payment terms)",
+          security: [],
+          responses: {
+            "200": {
+              description: "Discovery JSON",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      server: { type: "string" },
+                      x402Version: { type: "number" },
+                      network: { type: "string" },
+                      asset: { type: "string" },
+                      payTo: { type: "string" },
+                      endpoints: { type: "array", items: { type: "object" } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Content-Type", "application/json");
+  return res.status(200).json(doc);
+}
